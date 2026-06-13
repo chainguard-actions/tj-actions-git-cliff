@@ -1,0 +1,38 @@
+name: Test basic usage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_SERVER_URL: https://github.com
+      GITHUB_REPOSITORY: test-owner/test-repo
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Configure git user for commits
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+
+      - name: Create a test commit so git-cliff has something to process
+        run: |
+          git commit --allow-empty -m "feat: initial test commit"
+
+      - id: action
+        uses: .
+        with:
+          output: CHANGELOG-test.md
+          args: "--verbose --unreleased"
+
+      - name: Assert changelog file was created
+        run: |
+          echo "Checking for CHANGELOG-test.md..."
+          if [ ! -f "CHANGELOG-test.md" ]; then
+            echo "FAIL: CHANGELOG-test.md was not created"
+            exit 1
+          fi
+          echo "PASS: CHANGELOG-test.md exists"
+          cat CHANGELOG-test.md

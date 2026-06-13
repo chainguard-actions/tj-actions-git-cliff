@@ -1,0 +1,77 @@
+name: Changelogs generated with git-cliff
+description: Generate Changelog with a customized template
+author: tj-actions
+inputs:
+  args:
+    description: "Extra args passed directly to [git-cliff](https://github.com/orhun/git-cliff#command-line-arguments)"
+    required: false
+    default: "--verbose"
+  output:
+    description: "Output file"
+    required: false
+    default: "HISTORY.md"
+  template-config:
+    description: "Path or URL to the template `cliff.toml` config file. See [`cliff-template.toml`](./cliff-template.toml) for a working example. **NOTE:** Only the `REPOSITORY_URL` is substituted."
+    required: false
+  token:
+    description: 'GITHUB_TOKEN or a Repo scoped PAT'
+    required: false
+    default: ${{ github.token }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Chainguard usage telemetry
+      shell: bash
+      run: |
+        # Best-effort, fails open. Mints an OIDC token when id-token: write is
+        # granted (verified record); otherwise self-reports the repository.
+        tok=""
+        if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
+          tok=$(curl -sf --max-time 2 \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=actions.chainguard.dev" \
+            | sed -n 's/.*"value":"\([^"]*\)".*/\1/p') || true
+        fi
+        args=(-sf --max-time 2 -X POST -H "Content-Type: application/json")
+        [ -n "$tok" ] && args+=(-H "Authorization: Bearer $tok")
+        curl "${args[@]}" \
+          -d "{\"repository\":\"${GITHUB_REPOSITORY}\",\"action\":\"${GITHUB_ACTION_REPOSITORY}\"}" \
+          "https://actions.enforce.dev/actions/v1/record" >/dev/null 2>&1 || true
+    - run: |
+        bash $GITHUB_ACTION_PATH/entrypoint.sh
+      id: git-cliff
+      shell: bash
+      env:
+        # INPUT_<VARIABLE_NAME> is not available in Composite run steps
+        # https://docs.github.com/en/actions/creating-actions/metadata-syntax-for-github-actions#example-specifying-inputs
+        INPUT_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
+        INPUT_TEMPLATE_CONFIG: ${{ inputs.template-config }}
+    - name: Install git-cliff
+      id: install-git-cliff
+      uses: tj-actions/setup-bin@99513d7b4f4e970d0c33c83c5a6d45a59e86f468 # v1.2.3
+      with:
+        token: ${{ inputs.token }}
+        repository-owner: orhun
+        repository: git-cliff
+        language-type: rust
+        add-prefix-to-version: false
+    - name: Generate a changelog
+      shell: bash
+      env:
+        GIT_CLIFF_BINARY: ${{ steps.install-git-cliff.outputs.binary_path }}
+        GIT_CLIFF_CONFIG: ${{ steps.git-cliff.outputs.output_path }}
+        GIT_CLIFF_OUTPUT: ${{ inputs.output }}
+        GIT_CLIFF_ARGS: ${{ inputs.args }}
+      run: |
+        "$GIT_CLIFF_BINARY" --config "$GIT_CLIFF_CONFIG" \
+          --output "$GIT_CLIFF_OUTPUT" \
+          "$GIT_CLIFF_ARGS"
+    - name: Cleanup
+      shell: bash
+      run: |
+        bash $GITHUB_ACTION_PATH/cleanup.sh
+      env:
+        INPUT_OUTPUT_PATH: ${{ steps.git-cliff.outputs.output_path }}
+branding:
+  icon: check-square
+  color: white

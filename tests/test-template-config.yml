@@ -1,0 +1,49 @@
+name: Test with custom template-config
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_SERVER_URL: https://github.com
+      GITHUB_REPOSITORY: test-owner/test-repo
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Configure git user for commits
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+
+      - name: Create a test commit so git-cliff has something to process
+        run: |
+          git commit --allow-empty -m "feat: add custom template test commit"
+
+      - id: action
+        uses: .
+        with:
+          output: CHANGELOG-custom.md
+          args: "--verbose --unreleased"
+          template-config: ${{ github.workspace }}/actions/hardened/tj-actions--git-cliff/v2.1.0/tests/fixtures/cliff-custom.toml
+
+      - name: Assert changelog file was created with custom template
+        run: |
+          echo "Checking for CHANGELOG-custom.md..."
+          if [ ! -f "CHANGELOG-custom.md" ]; then
+            echo "FAIL: CHANGELOG-custom.md was not created"
+            exit 1
+          fi
+          echo "PASS: CHANGELOG-custom.md exists"
+          echo "--- Contents ---"
+          cat CHANGELOG-custom.md
+          echo "--- End Contents ---"
+
+      - name: Assert custom template footer is present
+        run: |
+          if ! grep -q "custom template" CHANGELOG-custom.md; then
+            echo "FAIL: custom template footer not found in CHANGELOG-custom.md"
+            exit 1
+          fi
+          echo "PASS: custom template footer found"
