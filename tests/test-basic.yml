@@ -1,0 +1,29 @@
+name: Test basic usage (default inputs)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_SERVER_URL: https://github.com
+      GITHUB_REPOSITORY: test-owner/test-repo
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - id: action
+        uses: .
+        with:
+          output: CHANGELOG.md
+
+      - name: Assert output file was created
+        run: |
+          echo "Checking if CHANGELOG.md was created..."
+          if [ ! -f "CHANGELOG.md" ]; then
+            echo "FAIL: CHANGELOG.md was not created"
+            exit 1
+          fi
+          echo "PASS: CHANGELOG.md exists"
+          echo "--- CHANGELOG.md contents (first 20 lines) ---"
+          head -20 CHANGELOG.md || true

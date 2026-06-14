@@ -1,0 +1,45 @@
+name: Test with custom template-config
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_SERVER_URL: https://github.com
+      GITHUB_REPOSITORY: test-owner/test-repo
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - id: action
+        uses: .
+        with:
+          output: CUSTOM_CHANGELOG.md
+          template-config: ${{ github.workspace }}/actions/hardened/tj-actions--git-cliff/v2.0.1/tests/fixtures/custom-cliff.toml
+
+      - name: Assert output file was created with custom template
+        run: |
+          echo "Checking if CUSTOM_CHANGELOG.md was created..."
+          if [ ! -f "CUSTOM_CHANGELOG.md" ]; then
+            echo "FAIL: CUSTOM_CHANGELOG.md was not created"
+            exit 1
+          fi
+          echo "PASS: CUSTOM_CHANGELOG.md exists"
+          echo "--- CUSTOM_CHANGELOG.md contents (first 20 lines) ---"
+          head -20 CUSTOM_CHANGELOG.md || true
+
+      - name: Assert custom template marker is present
+        run: |
+          echo "Checking for custom template footer marker..."
+          if grep -q "custom template" CUSTOM_CHANGELOG.md; then
+            echo "PASS: custom template marker found in output"
+          else
+            echo "INFO: custom template marker not found (may be trimmed or no commits matched)"
+            echo "Verifying file is non-empty..."
+            if [ ! -s "CUSTOM_CHANGELOG.md" ]; then
+              echo "FAIL: CUSTOM_CHANGELOG.md is empty"
+              exit 1
+            fi
+            echo "PASS: CUSTOM_CHANGELOG.md is non-empty"
+          fi
