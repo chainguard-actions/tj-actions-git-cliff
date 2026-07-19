@@ -1,0 +1,113 @@
+name: Test custom template config
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Configure git user (required for git-cliff)
+        run: |
+          git config --global user.email "test@example.com"
+          git config --global user.name "Test User"
+
+      - name: Create a test commit and tag so git-cliff has content
+        run: |
+          git commit --allow-empty -m "feat: add feature for custom template test"
+          git tag v0.0.1-test
+          echo "=== Git log (last 5 commits) ==="
+          git log --oneline -5
+          echo "=== Git tags ==="
+          git tag -l
+
+      - name: Create a custom cliff template config
+        run: |
+          cat > /tmp/custom-cliff.toml << 'EOF'
+          [changelog]
+          header = """
+          # My Custom Changelog
+
+          """
+          body = """
+          {% if version %}\
+          ## [{{ version | trim_start_matches(pat="v") }}] - ({{ timestamp | date(format="%Y-%m-%d") }})
+          {% else %}\
+          ## [unreleased]
+          {% endif %}\
+          {% for group, commits in commits | group_by(attribute="group") %}
+          ### {{ group | upper_first }}
+          {% for commit in commits %}
+          - {{ commit.message | upper_first }} ([{{ commit.id | truncate(length=7, end="") }}](REPOSITORY_URL/commit/{{ commit.id }}))
+          {% endfor %}
+          {% endfor %}
+
+          """
+          trim = true
+          footer = """
+          <!-- custom template -->
+          """
+
+          [git]
+          conventional_commits = true
+          filter_unconventional = false
+          protect_breaking_commits = false
+          commit_parsers = [
+              { message = "(?i)^feat", group = "Features"},
+              { message = "(?i)^fix", group = "Bug Fixes"},
+              { message = ".*", group = "Other"},
+          ]
+          tag_pattern = "v[0-9]*"
+          topo_order = false
+          sort_commits = "newest"
+          EOF
+          echo "Custom template created at /tmp/custom-cliff.toml"
+          cat /tmp/custom-cliff.toml
+
+      - name: Run git-cliff action with custom template config
+        id: action
+        uses: .
+        with:
+          token: ${{ github.token }}
+          output: CHANGELOG_TEMPLATE.md
+          template-config: /tmp/custom-cliff.toml
+
+      - name: Assert output file was created
+        run: |
+          echo "=== Checking for CHANGELOG_TEMPLATE.md ==="
+          ls -la *.md 2>/dev/null || echo "No .md files found in workspace root"
+          if [ ! -f "CHANGELOG_TEMPLATE.md" ]; then
+            echo "FAIL: CHANGELOG_TEMPLATE.md was not created"
+            exit 1
+          fi
+          echo "PASS: CHANGELOG_TEMPLATE.md exists"
+          echo "=== CHANGELOG_TEMPLATE.md size: $(wc -c < CHANGELOG_TEMPLATE.md) bytes ==="
+          echo "=== CHANGELOG_TEMPLATE.md contents ==="
+          cat CHANGELOG_TEMPLATE.md || true
+
+      - name: Assert output file is non-empty
+        run: |
+          if [ ! -s "CHANGELOG_TEMPLATE.md" ]; then
+            echo "FAIL: CHANGELOG_TEMPLATE.md is empty"
+            exit 1
+          fi
+          echo "PASS: CHANGELOG_TEMPLATE.md is non-empty"
+
+      - name: Assert output file contains custom header
+        run: |
+          if ! grep -q "My Custom Changelog" CHANGELOG_TEMPLATE.md; then
+            echo "FAIL: CHANGELOG_TEMPLATE.md does not contain custom header 'My Custom Changelog'"
+            cat CHANGELOG_TEMPLATE.md
+            exit 1
+          fi
+          echo "PASS: CHANGELOG_TEMPLATE.md contains custom header"
+
+      - name: Assert cliff.toml was cleaned up
+        run: |
+          if [ -f "cliff.toml" ]; then
+            echo "FAIL: cliff.toml was not cleaned up after action"
+            exit 1
+          fi
+          echo "PASS: cliff.toml was cleaned up"

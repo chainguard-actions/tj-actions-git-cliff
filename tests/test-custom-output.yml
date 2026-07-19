@@ -1,0 +1,60 @@
+name: Test custom output filename
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Configure git user (required for git-cliff)
+        run: |
+          git config --global user.email "test@example.com"
+          git config --global user.name "Test User"
+
+      - name: Create a test commit and tag so git-cliff has content
+        run: |
+          git commit --allow-empty -m "fix: resolve issue with custom output filename"
+          git tag v0.0.1-test
+          echo "=== Git log (last 5 commits) ==="
+          git log --oneline -5
+          echo "=== Git tags ==="
+          git tag -l
+
+      - name: Run git-cliff action with custom output filename
+        id: action
+        uses: .
+        with:
+          token: ${{ github.token }}
+          output: CHANGELOG_CUSTOM.md
+
+      - name: Assert custom output file was created
+        run: |
+          echo "=== Checking for CHANGELOG_CUSTOM.md ==="
+          ls -la *.md 2>/dev/null || echo "No .md files found in workspace root"
+          if [ ! -f "CHANGELOG_CUSTOM.md" ]; then
+            echo "FAIL: CHANGELOG_CUSTOM.md was not created"
+            exit 1
+          fi
+          echo "PASS: CHANGELOG_CUSTOM.md exists"
+          echo "=== CHANGELOG_CUSTOM.md size: $(wc -c < CHANGELOG_CUSTOM.md) bytes ==="
+          echo "=== CHANGELOG_CUSTOM.md contents ==="
+          cat CHANGELOG_CUSTOM.md || true
+
+      - name: Assert custom output file is non-empty
+        run: |
+          if [ ! -s "CHANGELOG_CUSTOM.md" ]; then
+            echo "FAIL: CHANGELOG_CUSTOM.md is empty"
+            exit 1
+          fi
+          echo "PASS: CHANGELOG_CUSTOM.md is non-empty"
+
+      - name: Assert cliff.toml was cleaned up
+        run: |
+          if [ -f "cliff.toml" ]; then
+            echo "FAIL: cliff.toml was not cleaned up after action"
+            exit 1
+          fi
+          echo "PASS: cliff.toml was cleaned up"

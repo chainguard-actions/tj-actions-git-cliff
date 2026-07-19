@@ -1,0 +1,59 @@
+name: Test basic usage (default output)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Configure git user (required for git-cliff)
+        run: |
+          git config --global user.email "test@example.com"
+          git config --global user.name "Test User"
+
+      - name: Create a test commit and tag so git-cliff has content
+        run: |
+          git commit --allow-empty -m "feat: add test feature for changelog generation"
+          git tag v0.0.1-test
+          echo "=== Git log (last 5 commits) ==="
+          git log --oneline -5
+          echo "=== Git tags ==="
+          git tag -l
+
+      - name: Run git-cliff action with defaults
+        id: action
+        uses: .
+        with:
+          token: ${{ github.token }}
+
+      - name: Assert HISTORY.md was created
+        run: |
+          echo "=== Checking for HISTORY.md ==="
+          ls -la *.md 2>/dev/null || echo "No .md files found in workspace root"
+          if [ ! -f "HISTORY.md" ]; then
+            echo "FAIL: HISTORY.md was not created"
+            exit 1
+          fi
+          echo "PASS: HISTORY.md exists"
+          echo "=== HISTORY.md size: $(wc -c < HISTORY.md) bytes ==="
+          echo "=== HISTORY.md contents ==="
+          cat HISTORY.md || true
+
+      - name: Assert HISTORY.md is non-empty
+        run: |
+          if [ ! -s "HISTORY.md" ]; then
+            echo "FAIL: HISTORY.md is empty"
+            exit 1
+          fi
+          echo "PASS: HISTORY.md is non-empty"
+
+      - name: Assert cliff.toml was cleaned up
+        run: |
+          if [ -f "cliff.toml" ]; then
+            echo "FAIL: cliff.toml was not cleaned up after action"
+            exit 1
+          fi
+          echo "PASS: cliff.toml was cleaned up"
