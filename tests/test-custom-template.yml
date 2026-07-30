@@ -1,0 +1,57 @@
+name: Test custom template config
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up git user and create a test commit
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          # Create a conventional commit so git-cliff has something to process
+          echo "test content $(date +%s)" > test-template-file.txt
+          git add test-template-file.txt
+          git commit -m "feat: add test file for custom template"
+
+      - name: Run git-cliff action with custom template
+        id: action
+        uses: .
+        with:
+          args: "--verbose --unreleased"
+          output: "CUSTOM_CHANGELOG.md"
+          template-config: "tests/fixtures/custom-cliff.toml"
+
+      - name: Assert custom changelog file was created
+        run: |
+          echo "Checking for CUSTOM_CHANGELOG.md..."
+          if [ ! -f "CUSTOM_CHANGELOG.md" ]; then
+            echo "FAIL: CUSTOM_CHANGELOG.md was not created"
+            exit 1
+          fi
+          echo "PASS: CUSTOM_CHANGELOG.md exists"
+          echo "--- CUSTOM_CHANGELOG.md contents ---"
+          cat CUSTOM_CHANGELOG.md
+
+      - name: Assert custom header is present in changelog
+        run: |
+          echo "Checking for custom header in changelog..."
+          if ! grep -q "Custom Changelog Header" CUSTOM_CHANGELOG.md; then
+            echo "FAIL: Custom header not found in changelog"
+            cat CUSTOM_CHANGELOG.md
+            exit 1
+          fi
+          echo "PASS: Custom header found in changelog"
+
+      - name: Assert cliff.toml was cleaned up
+        run: |
+          echo "Checking that cliff.toml was cleaned up..."
+          if [ -f "cliff.toml" ]; then
+            echo "FAIL: cliff.toml was not cleaned up after action"
+            exit 1
+          fi
+          echo "PASS: cliff.toml was cleaned up"

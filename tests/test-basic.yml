@@ -1,0 +1,55 @@
+name: Test basic changelog generation
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up git user and create a test commit
+        run: |
+          git config user.email "test@example.com"
+          git config user.name "Test User"
+          # Create a conventional commit so git-cliff has something to process
+          echo "test content $(date +%s)" > test-changelog-file.txt
+          git add test-changelog-file.txt
+          git commit -m "feat: add test file for changelog generation"
+
+      - name: Run git-cliff action with defaults
+        id: action
+        uses: .
+        with:
+          args: "--verbose --unreleased"
+          output: "CHANGELOG.md"
+
+      - name: Assert changelog file was created
+        run: |
+          echo "Checking for CHANGELOG.md..."
+          if [ ! -f "CHANGELOG.md" ]; then
+            echo "FAIL: CHANGELOG.md was not created"
+            exit 1
+          fi
+          echo "PASS: CHANGELOG.md exists"
+          echo "--- CHANGELOG.md contents ---"
+          cat CHANGELOG.md
+
+      - name: Assert changelog has content
+        run: |
+          echo "Checking that CHANGELOG.md has content..."
+          if [ ! -s "CHANGELOG.md" ]; then
+            echo "FAIL: CHANGELOG.md is empty"
+            exit 1
+          fi
+          echo "PASS: CHANGELOG.md has content"
+
+      - name: Assert cliff.toml was cleaned up
+        run: |
+          echo "Checking that cliff.toml was cleaned up..."
+          if [ -f "cliff.toml" ]; then
+            echo "FAIL: cliff.toml was not cleaned up after action"
+            exit 1
+          fi
+          echo "PASS: cliff.toml was cleaned up"
