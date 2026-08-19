@@ -58,14 +58,16 @@ runs:
     - name: Generate a changelog
       shell: bash
       env:
-        GIT_CLIFF_BINARY: ${{ steps.install-git-cliff.outputs.binary_path }}
-        GIT_CLIFF_CONFIG: ${{ steps.git-cliff.outputs.output_path }}
-        GIT_CLIFF_OUTPUT: ${{ inputs.output }}
-        GIT_CLIFF_ARGS: ${{ inputs.args }}
+        BINARY_PATH: ${{ steps.install-git-cliff.outputs.binary_path }}
+        CONFIG_PATH: ${{ steps.git-cliff.outputs.output_path }}
+        INPUT_OUTPUT: ${{ inputs.output }}
+        INPUT_ARGS: ${{ inputs.args }}
       run: |
-        "$GIT_CLIFF_BINARY" --config "$GIT_CLIFF_CONFIG" \
-          --output "$GIT_CLIFF_OUTPUT" \
-          "$GIT_CLIFF_ARGS"
+        args=()
+        read -ra args <<< "$INPUT_ARGS"
+        "$BINARY_PATH" --config "$CONFIG_PATH" \
+          --output "$INPUT_OUTPUT" \
+          "${args[@]}"
     - name: Cleanup
       shell: bash
       run: |

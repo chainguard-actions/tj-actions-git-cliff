@@ -1,4 +1,4 @@
-name: Test basic changelog generation
+name: Test custom output file
 on:
   workflow_dispatch:
 jobs:
@@ -16,8 +16,8 @@ jobs:
 
       - name: Create conventional commits for changelog
         run: |
-          git commit --allow-empty -m "feat: add initial feature for testing"
           git commit --allow-empty -m "fix: resolve a bug for testing"
+          git commit --allow-empty -m "feat: add new feature for testing"
 
       - name: Pre-install git-cliff
         run: |
@@ -35,34 +35,34 @@ jobs:
         uses: .
         with:
           args: "--verbose"
-          output: "HISTORY.md"
+          output: "CHANGELOG_CUSTOM.md"
 
-      - name: Assert output file exists
+      - name: Assert custom output file exists
         run: |
-          echo "Checking if HISTORY.md was created..."
-          if [ ! -f "HISTORY.md" ]; then
-            echo "FAIL: HISTORY.md was not created"
+          echo "Checking if CHANGELOG_CUSTOM.md was created..."
+          if [ ! -f "CHANGELOG_CUSTOM.md" ]; then
+            echo "FAIL: CHANGELOG_CUSTOM.md was not created"
             exit 1
           fi
-          echo "PASS: HISTORY.md exists"
+          echo "PASS: CHANGELOG_CUSTOM.md exists"
 
-      - name: Assert output file has content
+      - name: Assert custom output file has content
         run: |
-          echo "Checking HISTORY.md content..."
-          CONTENT=$(cat HISTORY.md)
+          echo "Checking CHANGELOG_CUSTOM.md content..."
+          CONTENT=$(cat CHANGELOG_CUSTOM.md)
           echo "Content: $CONTENT"
           if [ -z "$CONTENT" ]; then
-            echo "FAIL: HISTORY.md is empty"
+            echo "FAIL: CHANGELOG_CUSTOM.md is empty"
             exit 1
           fi
-          echo "PASS: HISTORY.md has content"
+          echo "PASS: CHANGELOG_CUSTOM.md has content"
 
       - name: Assert changelog marker is present
         run: |
-          echo "Checking for changelog marker..."
-          if ! grep -qi "changelog\|unreleased" HISTORY.md; then
-            echo "FAIL: no changelog marker found in HISTORY.md"
-            cat HISTORY.md
+          echo "Checking for changelog marker in output..."
+          if ! grep -qi "changelog\|unreleased" CHANGELOG_CUSTOM.md; then
+            echo "FAIL: no changelog marker found in CHANGELOG_CUSTOM.md"
+            cat CHANGELOG_CUSTOM.md
             exit 1
           fi
           echo "PASS: changelog marker found"

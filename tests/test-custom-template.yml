@@ -1,4 +1,4 @@
-name: Test basic changelog generation
+name: Test custom template config
 on:
   workflow_dispatch:
 jobs:
@@ -16,8 +16,8 @@ jobs:
 
       - name: Create conventional commits for changelog
         run: |
-          git commit --allow-empty -m "feat: add initial feature for testing"
-          git commit --allow-empty -m "fix: resolve a bug for testing"
+          git commit --allow-empty -m "feat: add custom template test feature"
+          git commit --allow-empty -m "fix: fix something for custom template test"
 
       - name: Pre-install git-cliff
         run: |
@@ -35,34 +35,35 @@ jobs:
         uses: .
         with:
           args: "--verbose"
-          output: "HISTORY.md"
+          output: "CUSTOM_TEMPLATE_HISTORY.md"
+          template-config: "${{ github.workspace }}/tests/fixtures/cliff-custom.toml"
 
       - name: Assert output file exists
         run: |
-          echo "Checking if HISTORY.md was created..."
-          if [ ! -f "HISTORY.md" ]; then
-            echo "FAIL: HISTORY.md was not created"
+          echo "Checking if CUSTOM_TEMPLATE_HISTORY.md was created..."
+          if [ ! -f "CUSTOM_TEMPLATE_HISTORY.md" ]; then
+            echo "FAIL: CUSTOM_TEMPLATE_HISTORY.md was not created"
             exit 1
           fi
-          echo "PASS: HISTORY.md exists"
+          echo "PASS: CUSTOM_TEMPLATE_HISTORY.md exists"
 
       - name: Assert output file has content
         run: |
-          echo "Checking HISTORY.md content..."
-          CONTENT=$(cat HISTORY.md)
+          echo "Checking CUSTOM_TEMPLATE_HISTORY.md content..."
+          CONTENT=$(cat CUSTOM_TEMPLATE_HISTORY.md)
           echo "Content: $CONTENT"
           if [ -z "$CONTENT" ]; then
-            echo "FAIL: HISTORY.md is empty"
+            echo "FAIL: CUSTOM_TEMPLATE_HISTORY.md is empty"
             exit 1
           fi
-          echo "PASS: HISTORY.md has content"
+          echo "PASS: CUSTOM_TEMPLATE_HISTORY.md has content"
 
-      - name: Assert changelog marker is present
+      - name: Assert custom header is present
         run: |
-          echo "Checking for changelog marker..."
-          if ! grep -qi "changelog\|unreleased" HISTORY.md; then
-            echo "FAIL: no changelog marker found in HISTORY.md"
-            cat HISTORY.md
+          echo "Checking for custom header in output..."
+          if ! grep -q "My Custom Changelog" CUSTOM_TEMPLATE_HISTORY.md; then
+            echo "FAIL: custom header 'My Custom Changelog' not found in output"
+            cat CUSTOM_TEMPLATE_HISTORY.md
             exit 1
           fi
-          echo "PASS: changelog marker found"
+          echo "PASS: custom header found"
