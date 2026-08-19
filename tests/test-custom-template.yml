@@ -1,0 +1,95 @@
+name: Test custom template config
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Create a custom cliff template config
+        run: |
+          cat > /tmp/custom-cliff.toml << 'EOF'
+          [changelog]
+          header = """
+          # My Custom Changelog
+
+          """
+          body = """
+          {% if version %}\
+          ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+          {% else %}\
+          ## [unreleased]
+          {% endif %}\
+          {% for group, commits in commits | group_by(attribute="group") %}
+          ### {{ group | upper_first }}
+          {% for commit in commits %}
+          - {{ commit.message | upper_first }} ([{{ commit.id | truncate(length=7, end="") }}](REPOSITORY_URL/commit/{{ commit.id }}))
+          {% endfor %}
+          {% endfor %}
+
+          """
+          trim = true
+          footer = ""
+
+          [git]
+          conventional_commits = true
+          filter_unconventional = false
+          protect_breaking_commits = false
+          commit_parsers = [
+              { message = ".*", group = "Changes"},
+          ]
+          tag_pattern = "v[0-9]*"
+          topo_order = false
+          sort_commits = "newest"
+          EOF
+
+      - name: Run git-cliff action with custom template
+        id: action
+        uses: .
+        with:
+          output: CUSTOM_CHANGELOG.md
+          template-config: /tmp/custom-cliff.toml
+          token: ${{ github.token }}
+
+      - name: Assert CUSTOM_CHANGELOG.md was created
+        run: |
+          echo "Checking for CUSTOM_CHANGELOG.md..."
+          if [ ! -f "CUSTOM_CHANGELOG.md" ]; then
+            echo "FAIL: CUSTOM_CHANGELOG.md was not created"
+            exit 1
+          fi
+          echo "PASS: CUSTOM_CHANGELOG.md exists"
+
+      - name: Assert CUSTOM_CHANGELOG.md has content
+        run: |
+          echo "Contents of CUSTOM_CHANGELOG.md:"
+          cat CUSTOM_CHANGELOG.md
+          SIZE=$(wc -c < CUSTOM_CHANGELOG.md)
+          echo "File size: $SIZE bytes"
+          if [ "$SIZE" -eq 0 ]; then
+            echo "FAIL: CUSTOM_CHANGELOG.md is empty"
+            exit 1
+          fi
+          echo "PASS: CUSTOM_CHANGELOG.md has content"
+
+      - name: Assert CUSTOM_CHANGELOG.md contains custom header
+        run: |
+          echo "Contents of CUSTOM_CHANGELOG.md:"
+          cat CUSTOM_CHANGELOG.md
+          if ! grep -q "My Custom Changelog" CUSTOM_CHANGELOG.md; then
+            echo "FAIL: CUSTOM_CHANGELOG.md does not contain 'My Custom Changelog'"
+            exit 1
+          fi
+          echo "PASS: CUSTOM_CHANGELOG.md contains custom header"
+
+      - name: Assert cliff.toml was cleaned up
+        run: |
+          if [ -f "cliff.toml" ]; then
+            echo "FAIL: cliff.toml was not cleaned up"
+            exit 1
+          fi
+          echo "PASS: cliff.toml was cleaned up"

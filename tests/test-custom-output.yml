@@ -1,4 +1,4 @@
-name: Test basic usage - default output
+name: Test custom output file
 on:
   workflow_dispatch:
 
@@ -10,32 +10,33 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Run git-cliff action with defaults
+      - name: Run git-cliff action with custom output file
         id: action
         uses: .
         with:
+          output: CHANGELOG.md
           token: ${{ github.token }}
 
-      - name: Assert HISTORY.md was created or updated
+      - name: Assert CHANGELOG.md was created
         run: |
-          echo "Checking for HISTORY.md..."
-          if [ ! -f "HISTORY.md" ]; then
-            echo "FAIL: HISTORY.md was not created"
+          echo "Checking for CHANGELOG.md..."
+          if [ ! -f "CHANGELOG.md" ]; then
+            echo "FAIL: CHANGELOG.md was not created"
             exit 1
           fi
-          echo "PASS: HISTORY.md exists"
+          echo "PASS: CHANGELOG.md exists"
 
-      - name: Assert HISTORY.md has content
+      - name: Assert CHANGELOG.md has content
         run: |
-          echo "Contents of HISTORY.md:"
-          cat HISTORY.md
-          SIZE=$(wc -c < HISTORY.md)
+          echo "Contents of CHANGELOG.md:"
+          cat CHANGELOG.md
+          SIZE=$(wc -c < CHANGELOG.md)
           echo "File size: $SIZE bytes"
           if [ "$SIZE" -eq 0 ]; then
-            echo "FAIL: HISTORY.md is empty"
+            echo "FAIL: CHANGELOG.md is empty"
             exit 1
           fi
-          echo "PASS: HISTORY.md has content"
+          echo "PASS: CHANGELOG.md has content"
 
       - name: Assert cliff.toml was cleaned up
         run: |
