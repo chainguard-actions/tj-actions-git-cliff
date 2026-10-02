@@ -52,7 +52,7 @@ runs:
         INPUT_TEMPLATE_CONFIG: ${{ inputs.template-config }}
     - name: Install git-cliff
       id: install-git-cliff
-      uses: tj-actions/setup-bin@99513d7b4f4e970d0c33c83c5a6d45a59e86f468 # v1.2.3
+      uses: chainguard-actions/tj-actions-setup-bin@cd385351fd60bebdf9f2f26b90dc867294061061 # v1.2.3
       with:
         token: ${{ inputs.token }}
         repository-owner: orhun
@@ -68,10 +68,14 @@ runs:
         INPUT_OUTPUT: ${{ inputs.output }}
         INPUT_ARGS: ${{ inputs.args }}
       run: |
-        read -ra extra_args <<< "$INPUT_ARGS"
+        args=()
+        if [ -n "$INPUT_ARGS" ]; then
+          while IFS= read -r -d '' t; do args+=("$t"); done \
+            < <(printf '%s' "$INPUT_ARGS" | xargs printf '%s\0')
+        fi
         "$BINARY_PATH" --config "$CONFIG_PATH" \
           --output "$INPUT_OUTPUT" \
-          "${extra_args[@]}"
+          "${args[@]}"
     - name: Cleanup
       shell: bash
       run: |
